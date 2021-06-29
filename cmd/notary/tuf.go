@@ -780,7 +780,7 @@ func getUsername(input chan string, buf *bufio.Reader) {
 }
 
 func (ps passwordStore) Basic(u *url.URL) (string, string) {
-	// if it's not a terminal, don't wait on input
+
 	if ps.anonymous {
 		return "", ""
 	}
