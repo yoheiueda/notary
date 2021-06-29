@@ -17,6 +17,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/docker/distribution/registry/api/errcode"
 	"github.com/docker/distribution/registry/client/auth"
 	"github.com/docker/distribution/registry/client/auth/challenge"
 	"github.com/docker/distribution/registry/client/transport"
@@ -1027,8 +1028,12 @@ func (a *authRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) 
 	for _, t := range a.trippers {
 		var err error
 		resp, err = t.RoundTrip(req)
-		// Reject on error
+
 		if err != nil {
+			if checkUnauthrized(err) {
+				continue
+			}
+			// Reject on error
 			return resp, err
 		}
 
@@ -1040,6 +1045,20 @@ func (a *authRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) 
 
 	// Return the last response
 	return resp, nil
+}
+
+func checkUnauthrized(err error) bool {
+
+	tripperErrors, ok := err.(errcode.Errors)
+	if !ok {
+		return false
+	}
+	for _, tripperError := range tripperErrors {
+		if fetchTokenError, ok := tripperError.(errcode.Error); !ok || fetchTokenError.Code != errcode.ErrorCodeUnauthorized {
+			return false
+		}
+	}
+	return true
 }
 
 func maybeAutoPublish(cmd *cobra.Command, doPublish bool, gun data.GUN, config *viper.Viper, passRetriever notary.PassRetriever) error {
